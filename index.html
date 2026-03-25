@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+
+body{
+  text-align:center;
+  font-family:sans-serif;
+  background:#f5f5f5;
+}
+
+#mode{
+  font-size:30px;
+  margin-top:40px;
+}
+
+button{
+  font-size:20px;
+  padding:10px 20px;
+  margin:10px;
+  border-radius:10px;
+}
+
+.timer{
+  position:relative;
+  width:200px;
+  margin:auto;
+}
+
+#time{
+  position:absolute;
+  top:50%;
+  left:50%;
+  transform:translate(-50%,-50%);
+  font-size:40px;
+  font-weight:bold;
+}
+
+#progress{
+  transform: rotate(-90deg);
+  transform-origin: 50% 50%;
+}
+
+</style>
+</head>
+
+<body>
+
+<h1>Pomodoro Timer</h1>
+
+<div class="tabs">
+  <button onclick="showTab('timer')">タイマー</button>
+  <button onclick="showTab('music')">音楽</button>
+  <button onclick="showTab('graph')">グラフ</button>
+</div>
+
+<div id="musicTab" style="display:none;">
+  <h2>音楽</h2>
+
+  <select onchange="changeMusic(this.value)">
+    <option value="music/brawnnoise.mp3">ブラウンノイズ</option>
+    <option value="music/cafe.mp3">カフェ音</option>
+    <option value="music/rainy.mp3">雨の音</option>
+    <option value="music/Lofi1.mp3">Lofi1</option>
+    <option value="music/Lofi2.mp3">Lofi2</option>
+    <option value="music/Lofi3.mp3">Lofi3</option>
+    
+  </select>
+
+  <br><br>
+
+  <audio id="bgm" loop></audio>
+
+  <button onclick="playMusic()">▶ 再生</button>
+  <button onclick="pauseMusic()">⏸ 停止</button>
+
+  <br><br>
+
+  音量：
+  <input type="range" min="0" max="1" step="0.01"
+         value="0.5" onchange="changeVolume(this.value)">
+</div>
+
+<div id="graphTab" style="display:none;">
+  <h2>勉強の記録</h2>
+  <canvas id="myChart" width="300" height="200"></canvas>
+
+</div>
+
+<div id="timerTab">
+
+<div class="timer">
+
+<svg width="200" height="200">
+
+  <circle
+    cx="100"
+    cy="100"
+    r="90"
+    stroke="#ddd"
+    stroke-width="10"
+    fill="none"
+  />
+
+  <circle
+    id="progress"
+    cx="100"
+    cy="100"
+    r="90"
+    stroke="tomato"
+    stroke-width="10"
+    fill="none"
+    stroke-dasharray="565"
+    stroke-dashoffset="0"
+  />
+
+</svg>
+
+<div id="time">25:00</div>
+
+</div>
+
+<div id="mode">WORK</div>
+<div id="message"></div>
+<div id="count">🍅 Today: 0</div>
+
+<button onclick="startTimer()">Start</button>
+<button onclick="pauseTimer()">Pause</button>
+<button onclick="resetTimer()">Reset</button>
+<button onclick="idleTimer()">Idle 1min</button>
+
+</div>
+
+<script>
+
+let time = 25 * 60;
+let pomodoroCount = 0;
+let timer;
+let mode = "work";
+let bell = new Audio("sounds/bell.mp3");
+let savedTime = localStorage.getItem("time");
+
+let savedCount = localStorage.getItem("count");
+if(savedCount){
+  pomodoroCount = parseInt(savedCount);
+  document.getElementById("count").textContent =
+    "🍅 Today: " + pomodoroCount;
+}
+
+if(savedTime){
+  time = parseInt(savedTime);
+}
+
+function updateDisplay(){
+
+  let minutes = Math.floor(time / 60);
+  let seconds = time % 60;
+
+  let circle = document.getElementById("progress");
+
+  let total;
+
+if(mode === "work"){
+  total = 25 * 60;
+  circle.style.stroke = "tomato";
+}else if(mode === "break"){
+  total = 5 * 60;
+  circle.style.stroke = "dodgerblue";
+}else{
+  total = 60;
+  circle.style.stroke = "gray";
+}
+
+let percent = time / total;
+
+
+
+circle.style.strokeDashoffset = 565 * (1 - percent);
+
+  document.getElementById("time").textContent =
+  minutes + ":" + seconds.toString().padStart(2,"0");
+
+  document.getElementById("count").textContent =
+  "🍅 Today: " + pomodoroCount;
+
+}
+
+function startTimer(){
+
+  if (timer) return;
+
+  document.getElementById("message").textContent = "作業開始！";
+
+  timer = setInterval(function () {
+
+    time--;
+    localStorage.setItem("time", time);
+
+    updateDisplay();
+
+    if (time < 0) {
+
+        bell.play();
+      
+        if(mode === "work"){
+            pomodoroCount++;
+            localStorage.setItem("count", pomodoroCount);
+            document.getElementById("count").textContent =
+                "🍅 Today: " + pomodoroCount;
+            mode = "break";
+            time = 5 * 60;
+            document.getElementById("message").textContent = "休憩！";
+            document.getElementById("mode").textContent = "BREAK";
+            let today = new Date().toLocaleDateString();
+
+            let studyData = JSON.parse(localStorage.getItem("study")) || {};
+
+            studyData[today] = (studyData[today] || 0) + 25;
+
+            localStorage.setItem("study", JSON.stringify(studyData));
+        }else if(mode === "break"){
+            mode = "work";
+            time = 25 * 60;
+            document.getElementById("message").textContent = "作業開始！";
+            document.getElementById("mode").textContent = "WORK";
+        }else if(mode === "idle"){
+            mode = "work";
+            time = 25 * 60;
+            document.getElementById("message").textContent = "作業開始！";
+            document.getElementById("mode").textContent = "WORK";
+
+        }
+
+       updateDisplay();
+
+    }
+
+  }, 1000);
+
+}
+
+function pauseTimer(){
+
+    clearInterval(timer);
+    timer = null;
+
+}
+
+function resetTimer(){
+
+    clearInterval(timer);
+    timer = null;
+
+
+    time = 25 * 60;
+
+    updateDisplay();
+
+}
+
+function idleTimer(){
+
+  clearInterval(timer);
+  timer = null;
+
+  mode = "idle";
+  time = 60;
+
+  document.getElementById("mode").textContent = "IDLE";
+
+  updateDisplay();
+
+}
+
+function showTab(tab){
+
+  document.getElementById("timerTab").style.display = "none";
+  document.getElementById("musicTab").style.display = "none";
+  document.getElementById("graphTab").style.display = "none";
+
+  if(tab === "timer"){
+    document.getElementById("timerTab").style.display = "block";
+  }else if(tab === "music"){
+    document.getElementById("musicTab").style.display = "block";
+  }else{
+    document.getElementById("graphTab").style.display = "block";
+    drawChart();
+  }
+
+}
+
+let bgm;
+
+window.onload = function(){
+  bgm = document.getElementById("bgm");
+}
+
+function changeMusic(src){
+  bgm.src = src;
+  bgm.play();
+}
+
+function playMusic(){
+  bgm.play();
+}
+
+function pauseMusic(){
+  bgm.pause();
+}
+
+function changeVolume(v){
+  bgm.volume = v;
+  localStorage.setItem("volume", v);
+}
+
+function changeMusic(src){
+  bgm.src = src;
+  bgm.play().catch(()=>{});
+}
+
+let savedVolume = localStorage.getItem("volume");
+if(savedVolume){
+  bgm.volume = savedVolume;
+}
+
+function drawChart(){
+
+  let studyData = JSON.parse(localStorage.getItem("study")) || {};
+
+  let labels = Object.keys(studyData);
+  let data = Object.values(studyData);
+
+  const ctx = document.getElementById("myChart");
+
+  new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels: labels,
+      datasets: [{
+        label: "勉強時間（分）",
+        data: data
+      }]
+    }
+  });
+}
+
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+</body>
+</html>
